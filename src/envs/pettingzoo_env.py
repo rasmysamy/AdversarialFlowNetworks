@@ -1,32 +1,33 @@
 import copy
 import math
-from typing import Type
+from typing import Type, Tuple
 
 import numpy as np
 import torch
+import supersuit as ss
 from pettingzoo import AECEnv
 
 from pettingzoo.atari import space_invaders_v2
 
 from src.envs.base_env import BaseEnv, Outcome, Player
 
-test_env = space_invaders_v2.env()
-test_env.reset()
-print(test_env.agents)
 
 class WrappedPettingZooEnv(BaseEnv):
-    def __init__(self, pettingzoo_env: AECEnv, max_cycles=None, rescale_factor: int = 1, *args, **kwargs):
+    def __init__(self, pettingzoo_env: AECEnv, max_cycles=None, obs_size=None, *args, **kwargs):
         if max_cycles is None:
             self.max_cycles = 10_000
         else:
             self.max_cycles = max_cycles
-        self._env = pettingzoo_env
+        if obs_size is None:
+            obs_size = (210, 160)
+        self.obs_size = obs_size
+        env = pettingzoo_env
+
+        self._env = env
         if hasattr(self._env, "max_cycles"):
             self.max_cycles = self._env.max_cycles
         self._env.reset()
         self._env.step(1)
-
-        self.rescale_factor = rescale_factor
 
         self.obs_transformer = lambda x: x
 
@@ -42,7 +43,7 @@ class WrappedPettingZooEnv(BaseEnv):
         assert len(agent_names) == 2, "Only 2 player games are supported"
 
         # State vars
-        self.board = np.zeros((3, int(210*rescale_factor), int(160*rescale_factor)))
+        self.board = np.zeros(self.obs_size)
         self.turns = 0
         self.curr_player = Player.ONE
         self.done = False
@@ -121,7 +122,7 @@ class WrappedPettingZooEnv(BaseEnv):
         return obs.astype(np.float32)
 
     def __deepcopy__(self, memo):
-        return WrappedPettingZooEnv(copy.deepcopy(self._env), max_cycles=self.max_cycles, rescale_factor=self.rescale_factor)
+        return WrappedPettingZooEnv(copy.deepcopy(self._env), max_cycles=self.max_cycles, obs_size=self.obs_size)
 
 
 
