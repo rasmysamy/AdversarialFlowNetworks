@@ -32,7 +32,7 @@ class BaseEnv(ABC):
 
     # NEED TO BE SET BY EACH ENV
     name: str
-    BOARD_SHAPE: tuple[int, ...]
+    OBS_SHAPE: tuple[int, ...]
     NUM_EXTRA_INFO: int
     ACTION_DIM: int
     MAX_TRAJ_LEN: int  # Number of possible turns + 1
@@ -49,13 +49,13 @@ class BaseEnv(ABC):
         self.lambd = lambd
 
         # Get env shapes/dims
-        self.BOARD_DIM = np.prod(self.BOARD_SHAPE).astype(int)
-        self.FLAT_STATE_DIM = self.BOARD_DIM + self.NUM_EXTRA_INFO
+        self.OBS_DIM = np.prod(self.OBS_SHAPE).astype(int)
+        self.FLAT_STATE_DIM = self.OBS_DIM + self.NUM_EXTRA_INFO
 
-        self.CONV_SHAPE = (1, *self.BOARD_SHAPE[1:])
+        self.CONV_SHAPE = (1, *self.OBS_SHAPE[1:])
         self.CONV_STATE_DIM = (
-            self.BOARD_SHAPE[0] + self.NUM_EXTRA_INFO,
-            *self.BOARD_SHAPE[1:],
+            self.OBS_SHAPE[0] + self.NUM_EXTRA_INFO,
+            *self.OBS_SHAPE[1:],
         )
 
         if self.use_conv:
@@ -119,11 +119,11 @@ class BaseEnv(ABC):
 
     def flat_obs(self) -> np.ndarray:
         obs = np.empty(self.FLAT_STATE_DIM, dtype=np.float32)
-        obs[: self.BOARD_DIM] = self.board.flatten()
+        obs[: self.OBS_DIM] = self.board.flatten()
 
         extra_info = self.get_extra_info()
         for i, info in enumerate(extra_info):
-            obs[self.BOARD_DIM + i] = info
+            obs[self.OBS_DIM + i] = info
 
         return obs
 

@@ -6,7 +6,7 @@ from tqdm import tqdm
 from torch import nn
 from omegaconf import DictConfig
 
-from src.envs.base_env import BaseEnv
+from src.envs.base_env import BaseEnv, Outcome, Player
 from src.data import gen_batch_traj_buffer, TrajectoryBuffer
 from src.eval import test_agent, UniformAgent
 
