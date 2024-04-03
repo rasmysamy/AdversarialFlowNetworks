@@ -1,7 +1,9 @@
+import copy
 import math
 from typing import Type
 
 import numpy as np
+import torch
 from pettingzoo import AECEnv
 
 from pettingzoo.atari import space_invaders_v2
@@ -13,9 +15,18 @@ test_env.reset()
 print(test_env.agents)
 
 class WrappedPettingZooEnv(BaseEnv):
-    def __init__(self, pettingzoo_env: AECEnv, max_cycles=10_000, rescale_factor: int = 1, *args, **kwargs):
+    def __init__(self, pettingzoo_env: AECEnv, max_cycles=None, rescale_factor: int = 1, *args, **kwargs):
+        if max_cycles is None:
+            self.max_cycles = 10_000
+        else:
+            self.max_cycles = max_cycles
         self._env = pettingzoo_env
+        if hasattr(self._env, "max_cycles"):
+            self.max_cycles = self._env.max_cycles
         self._env.reset()
+        self._env.step(1)
+
+        self.rescale_factor = rescale_factor
 
         self.obs_transformer = lambda x: x
 
@@ -31,7 +42,7 @@ class WrappedPettingZooEnv(BaseEnv):
         assert len(agent_names) == 2, "Only 2 player games are supported"
 
         # State vars
-        self.board = np.zeros((int(210*rescale_factor), int(160*rescale_factor), 3))
+        self.board = np.zeros((3, int(210*rescale_factor), int(160*rescale_factor)))
         self.turns = 0
         self.curr_player = Player.ONE
         self.done = False
@@ -42,21 +53,24 @@ class WrappedPettingZooEnv(BaseEnv):
         # NEED TO BE SET BY EACH ENV
         name: "Wrapped Petting Zoo Environment"
         self.OBS_SHAPE: tuple[int, ...] = self._env.observation_space(agent_names[0]).shape
+        self.OBS_SHAPE = self.board.shape
         self.NUM_EXTRA_INFO: int = 1
-        self.ACTION_DIM: int = math.prod(self._env.action_space(agent_names[0]).shape)
+        self.ACTION_DIM: int = self._env.action_space(agent_names[0]).n
         self.MAX_TRAJ_LEN: int = max_cycles * 2 + 1 # Number of possible turns + 1
 
         super().__init__(*args, **kwargs)
 
     def obs(self):
-        return self.obs_transformer(self.board)
-
+        # return self.obs_transformer(self.board).astype(np.float32)
+        return self.conv_obs()
     def place_piece(self, action) -> None:
+        if torch.is_tensor(action):
+            action = action.item()
         self._env.step(action)
         self.curr_player.switch()
         self.turns += 1
         observation, reward, termination, truncation, info = self._env.last()
-        self.board = observation
+        self.board = observation.reshape(self.OBS_SHAPE)
         if termination or truncation:
             self.done = True
             self.outcome = self.evaluate_outcome()
@@ -69,7 +83,7 @@ class WrappedPettingZooEnv(BaseEnv):
         return self.evaluate_winner(self.rewards[0], self.rewards[1])
 
     def get_extra_info(self) -> np.ndarray:
-        return np.array([int(self.curr_player), self.turns])
+        return np.array([self.turns])
 
     def get_masks(self) -> np.ndarray:
         return np.ones(self.ACTION_DIM)
@@ -77,7 +91,7 @@ class WrappedPettingZooEnv(BaseEnv):
     def reset(self) -> None:
         self._env.reset()
         observation, reward, termination, truncation, info = self._env.last()
-        self.board = observation
+        self.board = observation.reshape(self.OBS_SHAPE)
         self.turns = 0
         self.curr_player = Player.ONE
         self.done = False
@@ -91,7 +105,7 @@ class WrappedPettingZooEnv(BaseEnv):
         extra_info = self.get_extra_info()
         obs = np.concatenate(
             [self.board] + [np.ones(self.CONV_SHAPE) * info for info in extra_info],
-            axis=2,
+            axis=0,
         ).astype(np.float32)
 
         return obs
@@ -104,7 +118,10 @@ class WrappedPettingZooEnv(BaseEnv):
         for i, info in enumerate(extra_info):
             obs[self.OBS_DIM + i] = info
 
-        return obs
+        return obs.astype(np.float32)
+
+    def __deepcopy__(self, memo):
+        return WrappedPettingZooEnv(copy.deepcopy(self._env), max_cycles=self.max_cycles, rescale_factor=self.rescale_factor)
 
 
 
