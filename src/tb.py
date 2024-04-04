@@ -119,7 +119,7 @@ def train(
             print(f"Saved checkpoint at {last_ckpt_path}")
 
         # Sample new trajectories
-        if step and step % cfg.eval_every == 0:
+        if step and step % cfg.regen_every == 0:
             print("-" * 10, " Regen ", "-" * 10)
             model.eval()
             buffer = gen_batch_traj_buffer(

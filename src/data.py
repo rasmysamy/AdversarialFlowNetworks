@@ -109,6 +109,9 @@ def gen_batch_traj_buffer(
             # TODO: Support UniformAgent to speed up initial data collection
             with torch.no_grad():
                 _, logits = afn(batch_obs, curr_player)
+                if torch.any(torch.isnan(logits)):
+                    print("NANs in logits")
+                    _, logits = afn(batch_obs, curr_player)
                 masked_logits = batch_masks * logits + (1 - batch_masks) * (-1e9)
                 masked_probs = torch.nn.functional.softmax(masked_logits / 2, dim=1)
                 actions = masked_probs.multinomial(1)

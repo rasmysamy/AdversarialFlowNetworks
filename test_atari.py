@@ -1,6 +1,8 @@
 import copy
 
 from src.envs.pettingzoo_env import *
+from pettingzoo.atari import *
+import supersuit as ss
 from src.data import *
 from src.models.az_resnet import *
 

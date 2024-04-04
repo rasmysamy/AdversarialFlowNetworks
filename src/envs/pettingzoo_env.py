@@ -4,16 +4,14 @@ from typing import Type, Tuple
 
 import numpy as np
 import torch
-import supersuit as ss
 from pettingzoo import AECEnv
 
-from pettingzoo.atari import space_invaders_v2
 
 from src.envs.base_env import BaseEnv, Outcome, Player
 
 
 class WrappedPettingZooEnv(BaseEnv):
-    def __init__(self, pettingzoo_env: AECEnv, max_cycles=None, obs_size=None, *args, **kwargs):
+    def __init__(self, pettingzoo_env: AECEnv, max_cycles=None, obs_size=None, terminate_on_reward=False, *args, **kwargs):
         if max_cycles is None:
             self.max_cycles = 10_000
         else:
@@ -28,6 +26,8 @@ class WrappedPettingZooEnv(BaseEnv):
             self.max_cycles = self._env.max_cycles
         self._env.reset()
         self._env.step(1)
+
+        self.terminate_on_reward = terminate_on_reward
 
         self.obs_transformer = lambda x: x
 
@@ -71,11 +71,11 @@ class WrappedPettingZooEnv(BaseEnv):
         self.curr_player.switch()
         self.turns += 1
         observation, reward, termination, truncation, info = self._env.last()
+        self.rewards[self.curr_player] = np.append(self.rewards[self.curr_player], reward)
         self.board = observation.reshape(self.OBS_SHAPE)
-        if termination or truncation:
+        if termination or truncation or (self.terminate_on_reward and reward != 0):
             self.done = True
             self.outcome = self.evaluate_outcome()
-        self.rewards[self.curr_player] = np.append(self.rewards[self.curr_player], reward)
 
     def evaluate_outcome(self) -> Outcome:
         observation, reward, termination, truncation, info = self._env.last()
